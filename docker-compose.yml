@@ -1,0 +1,18 @@
+services:
+  galeria-casamento:
+    build:
+      context: .
+      args:
+        API_URL: ${API_URL}
+    container_name: galeria-casamento
+    restart: always
+    networks:
+      - proxy
+    ports:
+      - "3098:3098" 
+    environment:
+      API_URL: ${API_URL}
+
+networks:
+  proxy:
+    external: true
