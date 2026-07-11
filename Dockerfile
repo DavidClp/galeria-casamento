@@ -19,6 +19,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3098
+ENV HOSTNAME=0.0.0.0
 EXPOSE 3098
 
 COPY --from=build /app/.next/standalone ./
