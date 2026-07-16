@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { useGallery } from '@/components/gallery-provider'
 import { API_URL, type MediaItem } from '@/lib/gallery-data'
 
-const MAX_SIZE_MB = 50
+const MAX_SIZE_MB = 100
 const ACCEPTED = 'image/*,video/*'
 
 type PendingFile = {
@@ -20,10 +20,15 @@ type PendingFile = {
   type: 'photo' | 'video'
 }
 
+type UploadResponse = {
+  items: MediaItem[]
+  errors: { file: string; reason: string }[]
+}
+
 function uploadWithProgress(
   formData: FormData,
   onProgress: (pct: number) => void,
-): Promise<{ items: MediaItem[] }> {
+): Promise<UploadResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API_URL}/api/media`)
@@ -33,14 +38,18 @@ function uploadWithProgress(
       }
     }
     xhr.onload = () => {
-      let body: { items?: MediaItem[]; error?: string } = {}
+      let body: {
+        items?: MediaItem[]
+        errors?: { file: string; reason: string }[]
+        error?: string
+      } = {}
       try {
         body = JSON.parse(xhr.responseText)
       } catch {
         /* ignore */
       }
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve({ items: body.items ?? [] })
+        resolve({ items: body.items ?? [], errors: body.errors ?? [] })
       } else {
         reject(new Error(body.error || 'Falha ao enviar arquivos.'))
       }
@@ -106,12 +115,21 @@ export function UploadSection() {
     pending.forEach((p) => formData.append('files', p.file))
 
     try {
-      const { items } = await uploadWithProgress(formData, setProgress)
+      const { items, errors } = await uploadWithProgress(formData, setProgress)
       pending.forEach((p) => URL.revokeObjectURL(p.url))
       addMedia(items)
       toast.success(
         `${items.length} ${items.length === 1 ? 'arquivo enviado' : 'arquivos enviados'} com sucesso! Obrigado por compartilhar ❤️`,
       )
+      if (errors.length) {
+        const failed = errors.length
+        const total = items.length + failed
+        toast.warning(
+          `${failed} de ${total} ${failed === 1 ? 'arquivo falhou' : 'arquivos falharam'}: ${errors
+            .map((e) => `"${e.file}" (${e.reason})`)
+            .join('; ')}`,
+        )
+      }
       setPending([])
       setGuest('')
       setProgress(100)
@@ -131,7 +149,7 @@ export function UploadSection() {
             Envie suas lembranças
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-pretty leading-relaxed text-muted-foreground">
-            Arraste seus arquivos ou selecione do seu dispositivo. Aceitamos fotos e
+            Selecione os arquivos do seu dispositivo. Aceitamos fotos e
             vídeos.
           </p>
         </div>
@@ -166,11 +184,10 @@ export function UploadSection() {
             }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-              dragging
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging
                 ? 'border-primary bg-primary/8'
                 : 'border-border bg-muted/40 hover:border-primary/50 hover:bg-primary/5'
-            }`}
+              }`}
           >
             <motion.span
               animate={{ y: dragging ? -6 : 0 }}

@@ -15,4 +15,4 @@ export const COUPLE = {
 }
 
 export const API_URL =
-  process.env.API_URL?.replace(/\/$/, '') || 'http://localhost:4000'
+  process.env.API_URL?.replace(/\/$/, '') || 'http://localhost:3099'

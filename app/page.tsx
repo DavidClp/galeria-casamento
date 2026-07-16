@@ -12,12 +12,12 @@ import { FloatingUploadButton } from '@/components/floating-upload-button'
 export default function Page() {
   return (
     <GalleryProvider>
-      <FloralCorners />
+    {/*   <FloralCorners /> */}
       <div className="relative z-10">
         <Header />
         <main>
           <Hero />
-          <Stats />
+       {/*    <Stats /> */}
           <UploadSection />
           <Gallery />
           <HowItWorks />

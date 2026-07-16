@@ -48,7 +48,7 @@ export function Hero() {
           className="mx-auto mt-8 max-w-4xl overflow-hidden rounded-4xl shadow-xl ring-1 ring-border/60"
         >
           <img
-            src="/images/couple-banner.png"
+            src="/images/main.webp"
             alt={`${COUPLE.names} no dia do casamento`}
             className="aspect-[16/9] w-full object-cover"
           />
