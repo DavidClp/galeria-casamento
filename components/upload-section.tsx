@@ -171,7 +171,7 @@ export function UploadSection() {
       next.push({
         id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`,
         file,
-        url: URL.createObjectURL(file),
+        url: isVideo ? '' : URL.createObjectURL(file),
         type: isVideo ? 'video' : 'photo',
       })
     })
@@ -187,7 +187,7 @@ export function UploadSection() {
   function removePending(id: string) {
     setPending((prev) => {
       const target = prev.find((p) => p.id === id)
-      if (target) URL.revokeObjectURL(target.url)
+      if (target?.url) URL.revokeObjectURL(target.url)
       return prev.filter((p) => p.id !== id)
     })
   }
@@ -259,7 +259,7 @@ export function UploadSection() {
         )
       }
 
-      pending.forEach((p) => URL.revokeObjectURL(p.url))
+      pending.forEach((p) => p.url && URL.revokeObjectURL(p.url))
       addMedia(items)
       toast.success(
         `${items.length} ${items.length === 1 ? 'arquivo enviado' : 'arquivos enviados'} com sucesso! Obrigado por compartilhar ❤️`,
@@ -380,7 +380,12 @@ export function UploadSection() {
                             className="size-full object-cover"
                           />
                         ) : (
-                          <video src={p.url} className="size-full object-cover" muted />
+                          <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted/60 px-1 text-center">
+                            <FileVideo className="size-6 text-primary/70" />
+                            <span className="w-full truncate text-[10px] leading-tight text-muted-foreground">
+                              {p.file.name}
+                            </span>
+                          </div>
                         )}
                         <span className="absolute left-1.5 top-1.5 flex items-center rounded-full bg-background/80 p-1 text-primary backdrop-blur">
                           {p.type === 'photo' ? (
