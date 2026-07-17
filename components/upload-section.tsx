@@ -10,7 +10,9 @@ import { Progress } from '@/components/ui/progress'
 import { useGallery } from '@/components/gallery-provider'
 import { API_URL, type MediaItem } from '@/lib/gallery-data'
 
-const MAX_SIZE_MB = 100
+const MAX_IMAGE_MB = 100
+const MAX_VIDEO_MB = 2048
+const CHUNK_SIZE = 8 * 1024 * 1024
 const ACCEPTED = 'image/*,video/*'
 
 type PendingFile = {
@@ -25,7 +27,7 @@ type UploadResponse = {
   errors: { file: string; reason: string }[]
 }
 
-function uploadWithProgress(
+function uploadImagesWithProgress(
   formData: FormData,
   onProgress: (pct: number) => void,
 ): Promise<UploadResponse> {
@@ -59,6 +61,86 @@ function uploadWithProgress(
   })
 }
 
+async function uploadVideoChunked(
+  file: File,
+  guest: string,
+  onProgress: (pct: number) => void,
+): Promise<MediaItem> {
+  const initRes = await fetch(`${API_URL}/api/media/video/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      guest,
+      fileName: file.name,
+      contentType: file.type || 'video/mp4',
+      size: file.size,
+    }),
+  })
+  const initBody = await initRes.json().catch(() => ({}))
+  if (!initRes.ok) {
+    throw new Error(initBody.error || `Falha ao iniciar upload de "${file.name}".`)
+  }
+
+  const { uploadId, mediaId } = initBody as {
+    uploadId: string
+    mediaId: string
+  }
+
+  const totalParts = Math.ceil(file.size / CHUNK_SIZE)
+  const parts: { etag: string; partNumber: number }[] = []
+
+  try {
+    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+      const start = (partNumber - 1) * CHUNK_SIZE
+      const end = Math.min(start + CHUNK_SIZE, file.size)
+      const chunk = file.slice(start, end)
+
+      const chunkRes = await fetch(`${API_URL}/api/media/video/chunk`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'x-media-id': mediaId,
+          'x-upload-id': uploadId,
+          'x-part-number': String(partNumber),
+        },
+        body: chunk,
+      })
+      const chunkBody = await chunkRes.json().catch(() => ({}))
+      if (!chunkRes.ok) {
+        throw new Error(
+          chunkBody.error || `Falha no chunk ${partNumber} de "${file.name}".`,
+        )
+      }
+      parts.push({
+        etag: String(chunkBody.etag),
+        partNumber,
+      })
+      onProgress(Math.round((partNumber / totalParts) * 95))
+    }
+
+    const completeRes = await fetch(`${API_URL}/api/media/video/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaId, uploadId, parts }),
+    })
+    const completeBody = await completeRes.json().catch(() => ({}))
+    if (!completeRes.ok) {
+      throw new Error(
+        completeBody.error || `Falha ao finalizar "${file.name}".`,
+      )
+    }
+    onProgress(100)
+    return completeBody.item as MediaItem
+  } catch (err) {
+    await fetch(`${API_URL}/api/media/video/abort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaId, uploadId }),
+    }).catch(() => {})
+    throw err
+  }
+}
+
 export function UploadSection() {
   const { addMedia } = useGallery()
   const [dragging, setDragging] = React.useState(false)
@@ -77,8 +159,13 @@ export function UploadSection() {
         toast.error(`"${file.name}" não é uma imagem ou vídeo.`)
         return
       }
-      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        toast.error(`"${file.name}" excede o limite de ${MAX_SIZE_MB}MB.`)
+      const maxMb = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB
+      if (file.size > maxMb * 1024 * 1024) {
+        toast.error(
+          isVideo
+            ? `"${file.name}" excede o limite de ${MAX_VIDEO_MB / 1024}GB.`
+            : `"${file.name}" excede o limite de ${MAX_IMAGE_MB}MB.`,
+        )
         return
       }
       next.push({
@@ -110,12 +197,68 @@ export function UploadSection() {
     setUploading(true)
     setProgress(0)
 
-    const formData = new FormData()
-    formData.append('guest', guest.trim())
-    pending.forEach((p) => formData.append('files', p.file))
+    const guestName = guest.trim()
+    const photos = pending.filter((p) => p.type === 'photo')
+    const videos = pending.filter((p) => p.type === 'video')
+    const items: MediaItem[] = []
+    const errors: { file: string; reason: string }[] = []
+
+    const totalSteps = photos.length + videos.length || 1
+    let completedSteps = 0
+
+    function bumpProgress(localPct: number) {
+      const base = (completedSteps / totalSteps) * 100
+      const span = 100 / totalSteps
+      setProgress(Math.min(100, Math.round(base + (localPct / 100) * span)))
+    }
 
     try {
-      const { items, errors } = await uploadWithProgress(formData, setProgress)
+      if (photos.length) {
+        const formData = new FormData()
+        formData.append('guest', guestName)
+        photos.forEach((p) => formData.append('files', p.file))
+        try {
+          const result = await uploadImagesWithProgress(formData, bumpProgress)
+          items.push(...result.items)
+          errors.push(...result.errors)
+        } catch (err) {
+          photos.forEach((p) =>
+            errors.push({
+              file: p.file.name,
+              reason: err instanceof Error ? err.message : 'falha ao enviar',
+            }),
+          )
+        }
+        completedSteps += photos.length
+        bumpProgress(100)
+      }
+
+      for (const video of videos) {
+        try {
+          const item = await uploadVideoChunked(
+            video.file,
+            guestName,
+            bumpProgress,
+          )
+          items.push(item)
+        } catch (err) {
+          errors.push({
+            file: video.file.name,
+            reason: err instanceof Error ? err.message : 'falha ao enviar',
+          })
+        }
+        completedSteps += 1
+        bumpProgress(100)
+      }
+
+      if (!items.length) {
+        throw new Error(
+          errors.length
+            ? errors.map((e) => `"${e.file}": ${e.reason}`).join('; ')
+            : 'Falha ao enviar arquivos.',
+        )
+      }
+
       pending.forEach((p) => URL.revokeObjectURL(p.url))
       addMedia(items)
       toast.success(
@@ -202,7 +345,7 @@ export function UploadSection() {
               ou <span className="font-medium text-primary">clique para selecionar</span>
             </p>
             <p className="mt-4 text-xs text-muted-foreground">
-              JPG, PNG, HEIC, MP4, MOV · até {MAX_SIZE_MB}MB por arquivo
+              Fotos até {MAX_IMAGE_MB}MB · Vídeos até {MAX_VIDEO_MB / 1024}GB
             </p>
             <input
               ref={inputRef}

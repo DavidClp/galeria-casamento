@@ -13,6 +13,11 @@ import { Button } from '@/components/ui/button'
 import { useGallery } from '@/components/gallery-provider'
 import { GalleryCard } from '@/components/gallery-card'
 import { GalleryFilter, type FilterValue } from '@/components/gallery-filter'
+import {
+  FallbackImg,
+  FallbackVideo,
+  downloadMedia,
+} from '@/components/media-fallback'
 import type { MediaItem } from '@/lib/gallery-data'
 
 const SKELETON_HEIGHTS = ['h-64', 'h-80', 'h-56', 'h-72', 'h-60', 'h-96']
@@ -26,20 +31,7 @@ export function Gallery() {
 
   async function downloadActive() {
     if (!active) return
-    try {
-      const res = await fetch(active.src)
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${active.guest.replace(/\s+/g, '-').toLowerCase()}-${active.id}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      window.open(active.src, '_blank')
-    }
+    await downloadMedia(active)
   }
 
   return (
@@ -59,9 +51,9 @@ export function Gallery() {
         </div>
 
         {loading ? (
-          <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+          <div className="columns-2 gap-3 lg:columns-3 lg:gap-4">
             {SKELETON_HEIGHTS.map((h, i) => (
-              <Skeleton key={i} className={`mb-4 w-full rounded-3xl ${h}`} />
+              <Skeleton key={i} className={`mb-3 w-full rounded-2xl sm:mb-4 sm:rounded-3xl ${h}`} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -69,7 +61,7 @@ export function Gallery() {
             Nenhum registro por aqui ainda. Seja o primeiro a compartilhar!
           </p>
         ) : (
-          <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+          <div className="columns-2 gap-3 lg:columns-3 lg:gap-4">
             {filtered.map((item) => (
               <GalleryCard key={item.id} item={item} onOpen={() => setActive(item)} />
             ))}
@@ -89,14 +81,18 @@ export function Gallery() {
               </DialogDescription>
               <div className="bg-black">
                 {active.type === 'photo' ? (
-                  <img
+                  <FallbackImg
                     src={active.src || '/placeholder.svg'}
+                    fallbackSrc={active.srcFallback}
                     alt={`Registro enviado por ${active.guest}`}
                     className="max-h-[70vh] w-full object-contain"
                   />
                 ) : (
-                  <video
+                  <FallbackVideo
                     src={active.src}
+                    fallbackSrc={active.srcFallback}
+                    poster={active.poster || undefined}
+                    posterFallback={active.posterFallback}
                     controls
                     autoPlay
                     playsInline
