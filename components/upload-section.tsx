@@ -12,7 +12,7 @@ import { API_URL, type MediaItem } from '@/lib/gallery-data'
 
 const MAX_IMAGE_MB = 100
 const MAX_VIDEO_MB = 2048
-const CHUNK_SIZE = 8 * 1024 * 1024
+const CHUNK_SIZE = 20 * 1024 * 1024
 const ACCEPTED = 'image/*,video/*'
 
 type PendingFile = {
@@ -285,20 +285,16 @@ export function UploadSection() {
   }
 
   return (
-    <section id="upload" className="scroll-mt-20 px-4 py-12 md:py-16">
+    <section id="upload" className="scroll-mt-10 px-4 py-6 md:py-6">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 text-center">
           <h2 className="font-serif text-3xl text-balance text-foreground md:text-4xl">
             Envie suas lembranças
           </h2>
-          <p className="mx-auto mt-3 max-w-lg text-pretty leading-relaxed text-muted-foreground">
-            Selecione os arquivos do seu dispositivo. Aceitamos fotos e
-            vídeos.
-          </p>
         </div>
 
         <Card className="rounded-4xl border-border/60 bg-card/70 p-5 shadow-sm backdrop-blur-sm md:p-7">
-          <div className="mb-5">
+          <div className="mb-0">
             <label
               htmlFor="guest-name"
               className="mb-1.5 block text-sm font-medium text-foreground"
@@ -338,11 +334,9 @@ export function UploadSection() {
             >
               <UploadCloud className="size-7" />
             </motion.span>
-            <p className="font-serif text-xl text-foreground">
-              Arraste e solte aqui
-            </p>
+           
             <p className="mt-1 text-sm text-muted-foreground">
-              ou <span className="font-medium text-primary">clique para selecionar</span>
+             <span className="font-medium text-primary">Clique para selecionar</span>
             </p>
             <p className="mt-4 text-xs text-muted-foreground">
               Fotos até {MAX_IMAGE_MB}MB · Vídeos até {MAX_VIDEO_MB / 1024}GB
@@ -417,6 +411,10 @@ export function UploadSection() {
                       <span className="tabular-nums">{Math.round(progress)}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    <p className="mt-2 text-center text-xs text-muted-foreground">
+                      Pode demorar um pouquinho, dependendo da sua internet —
+                      fica tranquilo(a), não feche a página ❤️
+                    </p>
                   </div>
                 )}
 

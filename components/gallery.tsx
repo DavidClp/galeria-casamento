@@ -35,9 +35,9 @@ export function Gallery() {
   }
 
   return (
-    <section id="gallery" className="scroll-mt-20 px-4 py-12 md:py-16">
+    <section id="gallery" className="scroll-mt-10 px-4 py-6 md:py-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 text-center">
+        <div className="mb-4 text-center">
           <h2 className="font-serif text-3xl text-balance text-foreground md:text-4xl">
             Galeria de momentos
           </h2>

@@ -20,7 +20,7 @@ export const COUPLE = {
 }
 
 export const API_URL =
-  /*  process.env.API_URL?.replace(/\/$/, '') || */ 'http://localhost:3099' /* 'https://galeria-casamento-api.bikoservicos.com.br' */
+  /*  process.env.API_URL?.replace(/\/$/, '') || */ /* 'http://localhost:3099'  */'https://galeria-casamento-api.bikoservicos.com.br'
 
 export function displayUrl(item: MediaItem): string {
   return item.src || '/placeholder.svg'
